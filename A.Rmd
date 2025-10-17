@@ -1,0 +1,192 @@
+---
+title: "ProbApli_Equipo"
+author: "Mateo, Francisco, Thiago"
+date: "2025-10-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Trabajo
+
+2da CLASE
+
+Trabajamos con gráficos
+# Aprendemos a Graficar!!
+
+## Cargamos las bibliotecas necesarias para graficar
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+library(ggplot2)
+library(RColorBrewer)
+library(ggthemes)  # estilos de gráficos
+library(ggrepel)   # etiquetas de texto más prolijas que las de ggplot
+library(scales)    # tiene la función 'percent()'
+library(gganimate) # Para hacer gráficos animados.
+library(ggridges) # Para hacer gráficos de densidad faceteados
+library(GGally) # Para hacer varios gráficos juntos.
+library(cowplot)  #Para unir gráficos generados por ggplot2
+library(forcats)  #Para reordenar factores
+library(pyramid) # para pirámide poblacional
+library(ggcorrplot) # para correlogramas
+library(AER) # para datos
+library(hexbin) # para grafico de dispersión con intesidad por color
+library(readr) # libreria para leer archivos
+library(dplyr)
+library(wordcloud2)
+library(hms)
+library(lubridate)
+library(radarchart)
+```
+
+# Intro
+Objetivos de la investigacion
+
+
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+
+```
+
+## elo respecto a la velocidad de juego
+
+El elo es el rankin y el juego tiene diferentes velocidades nosotros entendemos que es en tiempo normal osea que un año en el juego son 1.5 segundos
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv")
+
+data <- data %>% rename(duracion = duration)
+data$duracion_fmt <- seconds_to_period(as.numeric(data$duracion))
+
+# Plot
+data %>%
+  tail(10) %>%
+  ggplot( aes(x=duracion, y=elo)) +
+    geom_line() + geom_point() +
+    scale_x_continuous(
+        breaks = seq(0, max(data$duracion, na.rm = TRUE), by = 600),
+        labels = function(x) sprintf("%02d:%02d", floor(x/60), round(x%%60)),
+        name = "Duración (MM:SS)"
+    ) + 
+    scale_y_continuous(
+        name = "ELo"
+    )
+```
+
+## Mapas mas usados
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+# Cargar los datos (asumiendo que ya tienes el dataframe cargado como df)
+# Si necesitas cargar desde CSV:
+# df <- read.csv("aoe_data_Solucionado.csv")
+
+# Contar frecuencia de mapas y preparar datos para wordcloud
+map_data <- data %>%
+  count(mapa, sort = TRUE) %>%
+  rename(word = mapa, freq = n)
+
+# Ver los datos preparados
+head(map_data)
+
+# Nube de palabras básica
+wordcloud2(map_data, size = 1.2, color = 'random-dark')
+
+# Nube de palabras con colores específicos
+wordcloud2(map_data, size = 1.2, color = rep_len(c("green", "blue"), nrow(data)))
+
+# Nube de palabras con fondo negro
+wordcloud2(map_data, size = 1.2, color = 'random-light', backgroundColor = "black")
+
+# Versión con ajuste de forma (elíptica)
+wordcloud2(map_data, size = 0.8, color = 'random-dark', ellipticity = 0.7)
+
+# Versión con rotación de palabras
+wordcloud2(map_data, size = 1.0, color = 'random-dark', minRotation = -pi/6, maxRotation = pi/6)
+```
+
+## Top 8 mapas mas usados
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+# Versión alternativa si quisieras comparar diferentes categorías
+# Por ejemplo, podríamos dividir por winner (0 vs 1) pero necesitaríamos más datos
+
+# Preparar datos para múltiples series (ejemplo conceptual)
+# data_comparison <- df %>%
+#   group_by(winner, map) %>%
+#   summarise(frequency = n(), .groups = 'drop') %>%
+#   pivot_wider(names_from = map, values_from = frequency, values_fill = 0) %>%
+#   select(winner, all_of(top_8_maps$map))
+
+# Mientras tanto, aquí tienes una versión mejorada del gráfico simple:
+radarchart(data,
+           pcol = c("#1f77b4"), 
+           pfcol = c(rgb(0.12, 0.47, 0.71, 0.3)),
+           plwd = 3,
+           plty = 1,
+           cglcol = "grey",
+           cglty = 1,
+           cglwd = 0.8,
+           axistype = 1,
+           axislabcol = "darkblue",
+           seg = 5,  # Número de segmentos en la cuadrícula
+           vlcex = 0.9,
+           calcex = 0.8,
+           title = "Frecuencia de Uso de los 8 Mapas Más Populares"
+)
+
+```
+
+## Las victorias entre jugador 1 y 2 de los 8 mapas más usados
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+
+```
+
+## Civilizaciónes con mas porbailidad de Victoria
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+```
+
+## Pocisiones de los p1 y p2 en los mapas
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+```
+
+## Promedio de tiempo de partidas
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+```
+
+## Civilizacion vs Civilizacion
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+data <- read_csv("aoe_data_Solucionado.csv") 
+head(data)
+str(data)
+print(data)
+```
+
+
+
+
