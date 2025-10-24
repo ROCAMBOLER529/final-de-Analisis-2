@@ -1,6 +1,6 @@
 ---
 title: "ProbApli_Equipo"
-author: "Mateo, Francisco, Thiago"
+author: "Mateo, Francisco, Thiago, DeepSeek"
 date: "2025-10-02"
 output: html_document
 ---
@@ -38,6 +38,9 @@ library(wordcloud2)
 library(hms)
 library(lubridate)
 library(radarchart)
+library(fmsb)
+library(readxl)
+library(waffle)  # Si no tienes: install.packages("waffle")
 ```
 
 # Intro
@@ -53,7 +56,7 @@ print(data)
 
 ```
 
-## elo respecto a la velocidad de juego
+## elo respecto a la velocidad de juego - Diagrama de dispercion 
 
 El elo es el rankin y el juego tiene diferentes velocidades nosotros entendemos que es en tiempo normal osea que un año en el juego son 1.5 segundos
 
@@ -109,82 +112,225 @@ wordcloud2(map_data, size = 0.8, color = 'random-dark', ellipticity = 0.7)
 wordcloud2(map_data, size = 1.0, color = 'random-dark', minRotation = -pi/6, maxRotation = pi/6)
 ```
 
-## Top 8 mapas mas usados
+## Top 8 mapas mas usados - Barras
 
 ```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-# Versión alternativa si quisieras comparar diferentes categorías
-# Por ejemplo, podríamos dividir por winner (0 vs 1) pero necesitaríamos más datos
+# Contar frecuencia de mapas y tomar los 8 más usados
+top_8_maps <- data %>%
+  count(mapa, sort = TRUE) %>%
+  head(8)
 
-# Preparar datos para múltiples series (ejemplo conceptual)
-# data_comparison <- df %>%
-#   group_by(winner, map) %>%
-#   summarise(frequency = n(), .groups = 'drop') %>%
-#   pivot_wider(names_from = map, values_from = frequency, values_fill = 0) %>%
-#   select(winner, all_of(top_8_maps$map))
+# Gráfico de barras HORIZONTAL (mejor para textos largos)
+ggplot(top_8_maps, aes(x = reorder(mapa, n), y = n)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = n), hjust = -0.2, size = 3.5) +  # Agregar valores
+  coord_flip() +  # Barras horizontales
+  labs(
+    title = "TOP 8 MAPAS MÁS USADOS EN AGE OF EMPIRES",
+    x = "Mapa",
+    y = "Número de Partidas"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.y = element_text(size = 10),
+    panel.grid.major.y = element_blank()
+  )
+```
 
-# Mientras tanto, aquí tienes una versión mejorada del gráfico simple:
-radarchart(data,
-           pcol = c("#1f77b4"), 
-           pfcol = c(rgb(0.12, 0.47, 0.71, 0.3)),
+## Las victorias entre jugador 1 y 2 de los 8 mapas más usados - Araña
+
+```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+
+# 1. Identificar los 8 mapas más usados
+top_8_maps <- data %>%
+  count(mapa, sort = TRUE) %>%
+  head(8) %>%
+  pull(mapa)
+
+# 2. Filtrar datos solo para los 8 mapas más usados
+filtered_data <- data %>%
+  filter(mapa %in% top_8_maps)
+
+# 3. Calcular victorias por mapa para cada jugador
+victories_by_map <- filtered_data %>%
+  group_by(mapa) %>%
+  summarise(
+    p1_wins = sum(winner == 1, na.rm = TRUE),
+    p2_wins = sum(winner == 0, na.rm = TRUE),
+    total_games = n()
+  ) %>%
+  mutate(
+    p1_win_rate = (p1_wins / total_games) * 100,
+    p2_win_rate = (p2_wins / total_games) * 100
+  ) %>%
+  arrange(match(mapa, top_8_maps))
+
+# Mostrar los datos
+print("Victorias por mapa:")
+print(victories_by_map)
+
+# 4. Preparar datos para el radar chart
+# Datos para Jugador 1 (victorias en porcentaje)
+p1_data <- as.data.frame(matrix(victories_by_map$p1_win_rate, nrow = 1))
+colnames(p1_data) <- victories_by_map$mapa
+
+# Datos para Jugador 2 (victorias en porcentaje)
+p2_data <- as.data.frame(matrix(victories_by_map$p2_win_rate, nrow = 1))
+colnames(p2_data) <- victories_by_map$mapa
+
+# Combinar ambos jugadores
+combined_data <- rbind(p1_data, p2_data)
+
+# 5. Agregar filas de máximo y mínimo
+max_value <- 53  # Porcentaje máximo
+min_value <- 47    # Porcentaje mínimo
+combined_data <- rbind(rep(max_value, 8), rep(min_value, 8), combined_data)
+
+# 6. Crear el gráfico de araña
+par(mar = c(1, 1, 3, 1))
+
+radarchart(combined_data,
+           # Personalizar múltiples series
+           pcol = c("#1E88E5", "#D81B60"),           # Colores: azul P1, rosa P2
+           pfcol = c(rgb(0.12, 0.53, 0.90, 0.3),     # Relleno P1
+                    rgb(0.85, 0.11, 0.38, 0.3)),     # Relleno P2
            plwd = 3,
            plty = 1,
+           
+           # Personalizar la cuadrícula
            cglcol = "grey",
            cglty = 1,
            cglwd = 0.8,
+           
+           # Personalizar ejes y etiquetas
            axistype = 1,
            axislabcol = "darkblue",
-           seg = 5,  # Número de segmentos en la cuadrícula
-           vlcex = 0.9,
-           calcex = 0.8,
-           title = "Frecuencia de Uso de los 8 Mapas Más Populares"
+           seg = 4,              # 4 segmentos (47%, 48.5%, 50%, 51.5%, 53%) <- MODIFICAR VALORES DE REFERENCIA
+           vlcex = 0.7,
+           calcex = 0.7,
+           
+           # Título
+           title = "VICTORIAS - JUGADOR 1 vs JUGADOR 2\nEN LOS 8 MAPAS MÁS USADOS"
 )
 
+# 7. Agregar leyenda
+legend("topright",
+       legend = c("Jugador 1", "Jugador 2"),
+       bty = "n",
+       pch = 20,
+       col = c("#1E88E5", "#D81B60"),
+       pt.cex = 2,
+       cex = 0.8,
+       text.col = "black")
 ```
 
-## Las victorias entre jugador 1 y 2 de los 8 mapas más usados
+## Civilizaciónes con mas porbailidad de Victoria - burbuja 
 
 ```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-data <- read_csv("aoe_data_Solucionado.csv") 
-head(data)
-str(data)
-print(data)
+# Versión 2: Burbujas con ejes invertidos para mejor lectura
+top_15_civs <- civ_stats %>% head(15)
 
+ggplot(top_15_civs, 
+       aes(x = reorder(civilization, win_rate), y = win_rate, 
+           size = total_games, color = win_rate)) +
+  geom_point(alpha = 0.7) +
+  scale_size(range = c(6, 18), name = "Partidas Totales") +
+  scale_color_gradient(low = "red", high = "darkgreen", name = "Win Rate %") +
+  coord_flip() +  # Invertir ejes para mejor lectura de nombres
+  labs(
+    title = "TOP 15 CIVILIZACIONES POR PORCENTAJE DE VICTORIA",
+    x = "Civilización",
+    y = "Porcentaje de Victoria (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.y = element_text(size = 10, face = "bold")
+  )
 ```
 
-## Civilizaciónes con mas porbailidad de Victoria
+## Pocisiones de los p1 y p2 en los mapas - dispersión 
 
 ```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-data <- read_csv("aoe_data_Solucionado.csv") 
-head(data)
-str(data)
-print(data)
+
+# 1. Filtrar datos que tienen coordenadas completas
+position_data <- data %>%
+  filter(!is.na(p1_xpos) & !is.na(p1_ypos) & !is.na(p2_xpos) & !is.na(p2_ypos))
+
+arabia_data <- position_data %>%
+  filter(mapa == "Arabia")
+
+ggplot(arabia_data, aes(x = p1_xpos, y = p1_ypos)) +
+  geom_point(aes(color = "Jugador 1"), alpha = 0.01, size = 3) +
+  geom_point(aes(x = p2_xpos, y = p2_ypos, color = "Jugador 2"), alpha = 0.01, size = 3) +
+  scale_color_manual(values = c("Jugador 1" = "blue", "Jugador 2" = "red")) +
+  labs(
+    title = "POSICIONES EN MAPA ARABIA",
+    x = "Coordenada X",
+    y = "Coordenada Y",
+    color = "Jugador"
+  ) +
+  theme_minimal()
 ```
 
-## Pocisiones de los p1 y p2 en los mapas
+## Promedio de tiempo de partidas - caja y vigotes .cambiar
 
 ```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-data <- read_csv("aoe_data_Solucionado.csv") 
-head(data)
-str(data)
-print(data)
+# 1. Calcular promedios de tiempo por categorías
+time_stats <- data %>%
+  summarise(
+    prom_general = mean(duracion, na.rm = TRUE),
+    prom_arabia = mean(duracion[mapa == "Arabia"], na.rm = TRUE),
+    prom_arena = mean(duracion[mapa == "Arena"], na.rm = TRUE),
+    prom_rapidas = mean(duracion[duracion < 1200], na.rm = TRUE),  # < 20 min
+    prom_largas = mean(duracion[duracion > 2400], na.rm = TRUE)    # > 40 min
+  )
+
+# Convertir a minutos para mejor interpretación
+time_stats_min <- time_stats / 60
+
+# Mostrar estadísticas
+print("Promedios de tiempo de partida (minutos):")
+print(round(time_stats_min, 1))
+
+waffle_data <- c(
+  'Promedio General' = round(time_stats_min$prom_general),
+  'Mapa Arabia' = round(time_stats_min$prom_arabia),
+  'Mapa Arena' = round(time_stats_min$prom_arena),
+  'Partidas Rápidas' = round(time_stats_min$prom_rapidas),
+  'Partidas Largas' = round(time_stats_min$prom_largas)
+)
+
+waffle_df <- data.frame(
+  categoria = names(waffle_data),
+  minutos = as.numeric(waffle_data),
+  color = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd")
+)
+
+# Crear waffle manual con ggplot
+ggplot(waffle_df, aes(fill = categoria, values = minutos)) +
+  geom_waffle(color = "white", size = 0.5, n_rows = 8) +
+  scale_fill_manual(values = setNames(waffle_df$color, waffle_df$categoria)) +
+  coord_equal() +
+  labs(
+    title = "PROMEDIO DE DURACIÓN DE PARTIDAS",
+    subtitle = "Cada cuadrado representa 1 minuto de juego",
+    fill = "Categoría"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "bottom"
+  )
 ```
 
-## Promedio de tiempo de partidas
+## Civilizacion vs Civilizacion - HeatMap
 
 ```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-data <- read_csv("aoe_data_Solucionado.csv") 
-head(data)
-str(data)
-print(data)
-```
 
-## Civilizacion vs Civilizacion
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-data <- read_csv("aoe_data_Solucionado.csv") 
-head(data)
-str(data)
-print(data)
 ```
 
 
