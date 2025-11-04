@@ -40,7 +40,6 @@ library(lubridate)
 library(radarchart)
 library(fmsb)
 library(readxl)
-library(waffle)  # Si no tienes: install.packages("waffle")
 ```
 
 # Intro
@@ -227,27 +226,78 @@ legend("topright",
 
 ## Civilizaciónes con mas porbailidad de Victoria - burbuja 
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+```{r pressure, warning=FALSE, cache=FALSE, message=FALSE, fig.width=12, fig.height=10}
 # Versión 2: Burbujas con ejes invertidos para mejor lectura
-top_15_civs <- civ_stats %>% head(15)
+data <- read.csv("aoe_data_Solucionado.csv", stringsAsFactors = FALSE)
 
-ggplot(top_15_civs, 
-       aes(x = reorder(civilization, win_rate), y = win_rate, 
-           size = total_games, color = win_rate)) +
-  geom_point(alpha = 0.7) +
-  scale_size(range = c(6, 18), name = "Partidas Totales") +
-  scale_color_gradient(low = "red", high = "darkgreen", name = "Win Rate %") +
-  coord_flip() +  # Invertir ejes para mejor lectura de nombres
-  labs(
-    title = "TOP 15 CIVILIZACIONES POR PORCENTAJE DE VICTORIA",
-    x = "Civilización",
-    y = "Porcentaje de Victoria (%)"
+## Tabla de victorias de jugador 1
+p1 <- data %>%
+  select(civ = p1_civ, winner) %>%
+  mutate(win = ifelse(winner == 0, 1, 0))
+
+## Tabla de victorias de jugador 2
+p2 <- data %>%
+  select(civ = p2_civ, winner) %>%
+  mutate(win = ifelse(winner == 1, 1, 0))
+
+## Une ambas tablas
+civs <- bind_rows(p1, p2)
+
+## Calcula el total de partidas ganadas por civilizacion
+resumen <- civs %>%
+  group_by(civ) %>%
+  summarise(
+    partidas = n(),
+    victorias = sum(win),
+    prob_victoria = victorias / partidas
+  ) %>%
+  arrange(desc(partidas))
+
+## Agarra las 15 más grandes del top15
+top15 <- resumen %>%
+  slice_max(order_by = partidas, n = 15) %>%
+  arrange(prob_victoria)
+
+# Preparar datos para el gráfico circular: top15 ya debe estar ordenado por prob_victoria asc
+top15 <- resumen %>%
+  slice_max(order_by = partidas, n = 15) %>%
+  arrange(prob_victoria)
+
+## Prepara los datos para el gráfico circular
+top15 <- top15 %>%
+  arrange(prob_victoria) %>%
+  mutate(
+    civ = factor(civ, levels = civ),
+    idx = as.numeric(civ),
+    n = n(),
+    adj_value = pmax(prob_victoria - 0.45, 0),
+    radius = adj_value + 0.01,
+    angle = 90 - 360 * (idx - 0.5) / n,
+    text_angle = ifelse(angle < -90, angle + 180, angle),
+    hjust_val = ifelse(angle < -90, 1, 0)
+  )
+
+ggplot(top15, aes(x = civ, y = adj_value, fill = prob_victoria)) +
+  geom_bar(stat = "identity", width = 1, color = "white", alpha = 0.8) +
+  geom_text(
+    aes(x = civ, y = radius, label = civ, angle = text_angle, hjust = hjust_val),
+    color = "black",
+    size = 5,
+    inherit.aes = FALSE
   ) +
+  coord_polar(start = 0) +
   theme_minimal() +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    axis.text.y = element_text(size = 10, face = "bold")
-  )
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = margin(2, 2, 2, 2)
+  ) +
+  scale_fill_gradient(low = "#ff6666", high = "#66ff99") +
+  ggtitle("Probabilidad de Victoria por Civilización (Top 15 más usadas)") +
+  labs(fill = "Prob. de Victoria") +
+  ylim(0, max(top15$adj_value, na.rm = TRUE) + 0.08)
+
 ```
 
 ## Pocisiones de los p1 y p2 en los mapas - dispersión 
@@ -276,53 +326,52 @@ ggplot(arabia_data, aes(x = p1_xpos, y = p1_ypos)) +
 
 ## Promedio de tiempo de partidas - caja y vigotes .cambiar
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
-# 1. Calcular promedios de tiempo por categorías
-time_stats <- data %>%
-  summarise(
-    prom_general = mean(duracion, na.rm = TRUE),
-    prom_arabia = mean(duracion[mapa == "Arabia"], na.rm = TRUE),
-    prom_arena = mean(duracion[mapa == "Arena"], na.rm = TRUE),
-    prom_rapidas = mean(duracion[duracion < 1200], na.rm = TRUE),  # < 20 min
-    prom_largas = mean(duracion[duracion > 2400], na.rm = TRUE)    # > 40 min
+```{r boxplot_top8_maps, fig.width=7, fig.height=5}
+top_8_maps <- data %>%
+  count(mapa, sort = TRUE) %>%  # La columna se llama 'map', no 'mapa'
+  head(8) %>%
+  pull(mapa)
+
+# Filtrar solo las partidas de los 8 mapas más usados
+data_top8 <- data %>%
+  filter(mapa %in% top_8_maps)  # La columna se llama 'map', no 'mapa'
+
+# Convertir duración a minutos y segundos (1 unidad = 1.5 segundos)
+data_top8 <- data_top8 %>%
+  mutate(
+    duration_seconds = duration * 1.5,  # Convertir a segundos reales
+    duration_minutes = duration_seconds / 60  # Convertir a minutos
   )
 
-# Convertir a minutos para mejor interpretación
-time_stats_min <- time_stats / 60
+# Crear etiquetas en formato MM:SS para el eje Y
+duration_labels <- function(x) {
+  total_seconds <- x * 60  # Convertir minutos a segundos
+  minutes <- floor(total_seconds / 60)
+  seconds <- round(total_seconds %% 60)
+  sprintf("%02d:%02d", minutes, seconds)
+}
 
-# Mostrar estadísticas
-print("Promedios de tiempo de partida (minutos):")
-print(round(time_stats_min, 1))
-
-waffle_data <- c(
-  'Promedio General' = round(time_stats_min$prom_general),
-  'Mapa Arabia' = round(time_stats_min$prom_arabia),
-  'Mapa Arena' = round(time_stats_min$prom_arena),
-  'Partidas Rápidas' = round(time_stats_min$prom_rapidas),
-  'Partidas Largas' = round(time_stats_min$prom_largas)
-)
-
-waffle_df <- data.frame(
-  categoria = names(waffle_data),
-  minutos = as.numeric(waffle_data),
-  color = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd")
-)
-
-# Crear waffle manual con ggplot
-ggplot(waffle_df, aes(fill = categoria, values = minutos)) +
-  geom_waffle(color = "white", size = 0.5, n_rows = 8) +
-  scale_fill_manual(values = setNames(waffle_df$color, waffle_df$categoria)) +
-  coord_equal() +
-  labs(
-    title = "PROMEDIO DE DURACIÓN DE PARTIDAS",
-    subtitle = "Cada cuadrado representa 1 minuto de juego",
-    fill = "Categoría"
+# Crear gráfico de cajas y bigotes ORDENADO por uso (más usado arriba)
+ggplot(data_top8, aes(x = reorder(mapa, -as.numeric(factor(mapa, levels = top_8_maps))), 
+                     y = duration_minutes)) +
+  geom_boxplot(fill = "#66ff99", alpha = 0.7, color = "black", outlier.color = "#ff6666") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 3, fill = "#ff6666") +
+  coord_flip() +
+  theme_minimal() +
+  scale_y_continuous(
+    labels = duration_labels,  # Usar formato MM:SS
+    breaks = scales::pretty_breaks(n = 8)
   ) +
-  theme_void() +
+  labs(
+    title = "Duración de las Partidas (Top 8 Mapas más usados)",
+    subtitle = "Punto rojo = Media | Formato MM:SS | 1 unidad = 1.5 segundos",
+    x = "Mapa (ordenado por uso: más usado arriba)",
+    y = "Duración (MM:SS)"
+  ) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-    plot.subtitle = element_text(hjust = 0.5, size = 12),
-    legend.position = "bottom"
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    axis.text.y = element_text(size = 10)
   )
 ```
 
