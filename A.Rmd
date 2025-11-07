@@ -1,23 +1,33 @@
 ---
 title: "ProbApli_Equipo"
-author: "Mateo, Francisco, Thiago, DeepSeek"
-date: "2025-10-02"
-output: html_document
+subtitle: "Age of Empires II"
+#logo: "UTN_logo.png"        # Archivo en misma carpeta
+author: 
+  - "Mateo Stefano Branciforte"
+  - "Francisco Ávalos"
+  - "Thiago Ventura"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output: 
+  prettydoc::html_pretty:
+    theme: cayman
+abstract: |
+  Este reporte presenta un análisis completo de las peleas en 
+  Age of Empires II, Desde Mapas hasta civilisaciones.
 ---
 
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# codigo para esconder resultados y codigo
+knitr::opts_chunk$set(
+  echo = FALSE,       # No muestra el código
+  message = FALSE,    # No muestra mensajes (por ejemplo de library())
+  warning = FALSE,    # No muestra advertencias
+  results = 'hide'    # Oculta resultados de texto (solo deja los gráficos)
+)
 ```
 
-#Trabajo
-
-2da CLASE
-
-Trabajamos con gráficos
-# Aprendemos a Graficar!!
-
+```{r pressure0,warning=FALSE, cache=FALSE, message=FALSE}
 ## Cargamos las bibliotecas necesarias para graficar
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
 library(ggplot2)
 library(RColorBrewer)
 library(ggthemes)  # estilos de gráficos
@@ -40,6 +50,9 @@ library(lubridate)
 library(radarchart)
 library(fmsb)
 library(readxl)
+library(viridis)
+library(prettydoc)
+library(plotly)
 ```
 
 # Intro
@@ -47,7 +60,7 @@ Objetivos de la investigacion
 
 
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+```{r pressure1,warning=FALSE, cache=FALSE, message=FALSE}
 data <- read_csv("aoe_data_Solucionado.csv") 
 head(data)
 str(data)
@@ -55,11 +68,11 @@ print(data)
 
 ```
 
-## elo respecto a la velocidad de juego - Diagrama de dispercion 
+## Correlación entre Ranking (ELO) y Duración de Partidas
 
-El elo es el rankin y el juego tiene diferentes velocidades nosotros entendemos que es en tiempo normal osea que un año en el juego son 1.5 segundos
+Este diagrama de dispersión analiza la relación entre el nivel de habilidad de los jugadores (medido por ELO) y la duración de sus partidas. Buscamos identificar si los jugadores de mayor nivel tienden a tener partidas más largas o más cortas, lo que podría indicar diferentes estrategias de juego según el nivel de experiencia.
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+```{r pressure2, message=FALSE, warning=FALSE, cache=FALSE}
 data <- read_csv("aoe_data_Solucionado.csv")
 
 data <- data %>% rename(duracion = duration)
@@ -80,9 +93,11 @@ data %>%
     )
 ```
 
-## Mapas mas usados
+## Distribución de Popularidad de Mapas - Análisis Visual
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+La nube de palabras muestra visualmente los mapas más populares en el juego, donde el tamaño de cada palabra representa la frecuencia de uso. Este análisis nos permite identificar rápidamente los mapas preferidos por la comunidad y aquellos que son menos utilizados.
+
+```{r pressure3,warning=FALSE, cache=FALSE, message=FALSE}
 # Cargar los datos (asumiendo que ya tienes el dataframe cargado como df)
 # Si necesitas cargar desde CSV:
 # df <- read.csv("aoe_data_Solucionado.csv")
@@ -111,9 +126,11 @@ wordcloud2(map_data, size = 0.8, color = 'random-dark', ellipticity = 0.7)
 wordcloud2(map_data, size = 1.0, color = 'random-dark', minRotation = -pi/6, maxRotation = pi/6)
 ```
 
-## Top 8 mapas mas usados - Barras
+## Ranking de los 8 Mapas Más Populares en Age of Empires II
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+Este gráfico de barras horizontales presenta cuantitativamente los 8 mapas más utilizados, ordenados por frecuencia de uso. Arabia aparece como el mapa más popular, seguido por otros clásicos de la comunidad competitiva.
+
+```{r pressure4,warning=FALSE, cache=FALSE, message=FALSE}
 # Contar frecuencia de mapas y tomar los 8 más usados
 top_8_maps <- data %>%
   count(mapa, sort = TRUE) %>%
@@ -137,9 +154,11 @@ ggplot(top_8_maps, aes(x = reorder(mapa, n), y = n)) +
   )
 ```
 
-## Las victorias entre jugador 1 y 2 de los 8 mapas más usados - Araña
+## Distribución de Victorias: Jugador 1 vs Jugador 2 en Mapas Populares
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+El gráfico radar compara las tasas de victoria del Jugador 1 (azul) versus el Jugador 2 (rosa) en los 8 mapas más populares. Este análisis revela si existe alguna ventaja sistemática asociada a la posición inicial del jugador en diferentes tipos de mapas.
+
+```{r pressure5,warning=FALSE, cache=FALSE, message=FALSE}
 
 # 1. Identificar los 8 mapas más usados
 top_8_maps <- data %>%
@@ -224,9 +243,11 @@ legend("topright",
        text.col = "black")
 ```
 
-## Civilizaciónes con mas porbailidad de Victoria - burbuja 
+## Tasa de Victoria de las 15 Civilizaciones Más Utilizadas
 
-```{r pressure, warning=FALSE, cache=FALSE, message=FALSE, fig.width=12, fig.height=10}
+Este gráfico circular analiza la probabilidad de victoria de las 15 civilizaciones más populares. El gradiente de color (rojo a verde) indica el desempeño relativo, permitiendo identificar qué civilizaciones tienen mejores tasas de victoria cuando son utilizadas con frecuencia.
+
+```{r pressure6, warning=FALSE, cache=FALSE, message=FALSE, fig.width=12, fig.height=10}
 # Versión 2: Burbujas con ejes invertidos para mejor lectura
 data <- read.csv("aoe_data_Solucionado.csv", stringsAsFactors = FALSE)
 
@@ -300,9 +321,11 @@ ggplot(top15, aes(x = civ, y = adj_value, fill = prob_victoria)) +
 
 ```
 
-## Pocisiones de los p1 y p2 en los mapas - dispersión 
+## Análisis Espacial: Posiciones de Inicio en el Mapa Arabia
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+Este diagrama de dispersión muestra las coordenadas de inicio de ambos jugadores en el mapa Arabia. La superposición de puntos azules (Jugador 1) y rojos (Jugador 2) revela patrones de distribución espacial y posibles estrategias de colocación inicial en el mapa más popular del juego.
+
+```{r pressure7,warning=FALSE, cache=FALSE, message=FALSE}
 
 # 1. Filtrar datos que tienen coordenadas completas
 position_data <- data %>%
@@ -324,7 +347,9 @@ ggplot(arabia_data, aes(x = p1_xpos, y = p1_ypos)) +
   theme_minimal()
 ```
 
-## Promedio de tiempo de partidas - caja y vigotes .cambiar
+## Variabilidad en la Duración de Partidas por Tipo de Mapa
+
+Los diagramas de caja y bigotes muestran la distribución de duraciones de partidas en los 8 mapas más populares. Este análisis revela qué mapas tienden a generar partidas más largas o cortas, así como la consistencia en los tiempos de juego, información valiosa para torneos y estrategias.
 
 ```{r boxplot_top8_maps, fig.width=7, fig.height=5}
 top_8_maps <- data %>%
@@ -375,11 +400,46 @@ ggplot(data_top8, aes(x = reorder(mapa, -as.numeric(factor(mapa, levels = top_8_
   )
 ```
 
-## Civilizacion vs Civilizacion - HeatMap
+## Distribución de las civilizaciones en el mapa - HeatMap
 
-```{r pressure,warning=FALSE, cache=FALSE, message=FALSE}
+```{r pressure8,warning=FALSE, cache=FALSE, message=FALSE}
+# Procesar los datos: contar victorias por civilización y mapa
+heatmap_data <- data %>%
+  group_by(p1_civ, mapa) %>%
+  summarise(
+    victorias = sum(winner == 1, na.rm = TRUE),
+    .groups = 'drop'
+  )
 
-
+# Crear el HeatMap con las especificaciones solicitadas
+ggplot(heatmap_data, aes(x = p1_civ, y = mapa, fill = victorias)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_gradientn(
+    name = "Victorias",
+    colours = c("#f0f0f0", viridis(100)),
+    values = scales::rescale(c(0, max(heatmap_data$victorias))),
+    breaks = c(0, 1, 3, 5, 10),
+    labels = c("Sin datos", "1", "3", "5", "10+"),
+    na.value = "#f0f0f0"
+  ) +
+  labs(
+    title = "HeatMap: Victorias por Civilización y Mapa",
+    subtitle = "Jugador 1 - Civilizaciones vs Mapas",
+    x = "Civilización (Jugador 1)",
+    y = "Mapa"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 8),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.position = "right",
+    legend.text = element_text(size = 9),
+    legend.title = element_text(size = 11),
+    panel.grid = element_blank(),
+    plot.margin = margin(0.01, 0.01, 0.01, 0.01, "cm")
+  )
 ```
 
 
